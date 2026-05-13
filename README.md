@@ -1,1 +1,1 @@
-Final Project for DATA 274P: Neural Networks
+Final Project for COMPSCI 274P: Neural Networks
