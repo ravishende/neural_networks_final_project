@@ -19,7 +19,6 @@ def parse_uspto_reaction(rxn_smiles):
 
     reactants, reagents, products = parts
 
-    # reactants + reagents를 input graph로 사용
     if reagents.strip():
         input_smiles = reactants + "." + reagents
     else:
