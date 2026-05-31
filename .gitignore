@@ -1,3 +1,4 @@
 .DS_Store
 src/data
+src/__pycache__/
 src/utils/__pycache__/
