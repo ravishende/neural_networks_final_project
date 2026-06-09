@@ -7,6 +7,7 @@ ray[tune]==2.55.1
 rdkit==2026.3.2
 requests==2.34.2
 seaborn==0.13.2
+SmilesPE==0.0.3
 sympy==1.14.0
 tensorboard==2.20.0
 torch==2.12.0
