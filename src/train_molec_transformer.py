@@ -73,14 +73,15 @@ def main():
     CHECKPOINT_DIR = OUTPUT_DIR / "checkpoints"
     CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
 
+    TOKEN_DIR = PROCESSED_DIR / "{N_RANDOM_SMILES_AUGMENTATIONS}_augmentations"
     TOKEN_CACHE = {
-        "train": PROCESSED_DIR / "train_tokens.pt",
-        "valid": PROCESSED_DIR / "valid_tokens.pt",
-        "test": PROCESSED_DIR / "test_tokens.pt",
+        "train": TOKEN_DIR / "train_tokens.pt",
+        "valid": TOKEN_DIR / "valid_tokens.pt",
+        "test": TOKEN_DIR / "test_tokens.pt",
     }
 
-    TOKEN_TO_ID_PATH = PROCESSED_DIR / "token_to_id.pkl"
-    ID_TO_TOKEN_PATH = PROCESSED_DIR / "id_to_token.pkl"
+    TOKEN_TO_ID_PATH = TOKEN_DIR / "token_to_id.pkl"
+    ID_TO_TOKEN_PATH = TOKEN_DIR / "id_to_token.pkl"
 
     DEVICE = pick_device()
     print(DEVICE)
