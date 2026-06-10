@@ -1,8 +1,9 @@
 .DS_Store
 .env
 src/.env
-src/data/processed
-src/data/raw
+src/.ipynb_checkpoints/
+src/data/processed/
+src/data/raw/
 src/__pycache__/
 src/utils/__pycache__/
-src/outputs
+src/outputs/
