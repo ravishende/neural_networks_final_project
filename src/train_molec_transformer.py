@@ -177,6 +177,8 @@ def main():
 
     if not TOKEN_TO_ID_PATH.exists():
         build_token_cache()
+    else:
+        print("Pulling existing token cache from disk")
 
     with open(TOKEN_TO_ID_PATH, "rb") as f:
         token_to_id = pickle.load(f)
