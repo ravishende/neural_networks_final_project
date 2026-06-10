@@ -99,6 +99,8 @@ def main():
 
     spe_vocab = codecs.open(SPE_PATH)
     spe = SPE_Tokenizer(spe_vocab)
+    def tokenize_smiles(smiles):
+        return spe.tokenize(smiles).split()
 
     def build_token_cache():
         token_counter = {}
@@ -171,6 +173,25 @@ def main():
 
         with open(ID_TO_TOKEN_PATH, "wb") as f:
             pickle.dump(id_to_token, f)
+
+    if not TOKEN_TO_ID_PATH.exists():
+        build_token_cache()
+
+    with open(TOKEN_TO_ID_PATH, "rb") as f:
+        token_to_id = pickle.load(f)
+
+    with open(ID_TO_TOKEN_PATH, "rb") as f:
+        id_to_token = pickle.load(f)
+
+    train_data = torch.load(TOKEN_CACHE["train"], weights_only=True)
+    valid_data = torch.load(TOKEN_CACHE["valid"], weights_only=True)
+    test_data = torch.load(TOKEN_CACHE["test"], weights_only=True)
+
+    VOCAB_SIZE = len(token_to_id)
+    PAD_ID = token_to_id[PAD_TOKEN]
+
+    print(VOCAB_SIZE)
+
 
     def ids_to_smiles(ids, id_to_token):
         tokens = []
@@ -689,7 +710,7 @@ def main():
     criterion = nn.CrossEntropyLoss(
         ignore_index=PAD_ID,
     )
-    history_df, best_metric = train_model(
+    train_model(
         model=model,
         train_loader=train_loader,
         valid_loader=valid_loader,
@@ -1206,9 +1227,6 @@ def parse_reaction_line(line):
 
     return src, tgt
 
-
-def tokenize_smiles(smiles):
-    return spe.tokenize(smiles).split()
 
 
 
