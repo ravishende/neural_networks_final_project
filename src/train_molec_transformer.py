@@ -73,7 +73,7 @@ def main():
     CHECKPOINT_DIR = OUTPUT_DIR / "checkpoints"
     CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
 
-    TOKEN_DIR = PROCESSED_DIR / "{N_RANDOM_SMILES_AUGMENTATIONS}_augmentations"
+    TOKEN_DIR = PROCESSED_DIR / f"{N_RANDOM_SMILES_AUGMENTATIONS}_augmentations"
     TOKEN_CACHE = {
         "train": TOKEN_DIR / "train_tokens.pt",
         "valid": TOKEN_DIR / "valid_tokens.pt",
