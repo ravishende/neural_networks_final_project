@@ -407,8 +407,8 @@ def main():
         return generated
 
     def train_tune(config, train_ref, valid_ref):
-        train = ray.get(train_ref)
-        valid = ray.get(valid_ref)
+        train = train_ref
+        valid = valid_ref
 
         train_subset = Subset(
             ReactionDataset(train),
