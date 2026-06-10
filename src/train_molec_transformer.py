@@ -84,6 +84,8 @@ def main():
     TOKEN_TO_ID_PATH = TOKEN_DIR / "token_to_id.pkl"
     ID_TO_TOKEN_PATH = TOKEN_DIR / "id_to_token.pkl"
 
+    SPE_PATH = Path("data/SPE_ChEMBL.txt")
+    
     DEVICE = pick_device()
     print(DEVICE)
 
@@ -97,14 +99,11 @@ def main():
 
     print_title("Token Processing")
 
-    SPE_PATH = Path("data/SPE_ChEMBL.txt")
+    spe_tokenizer = None
+    with open(SPE_PATH, "r", encoding="utf-8") as spe_vocab:
+        spe_tokenizer = SPE_Tokenizer(spe_vocab)
 
-    spe_vocab = codecs.open(SPE_PATH)
-    spe = SPE_Tokenizer(spe_vocab)
-    def tokenize_smiles(smiles):
-        return spe.tokenize(smiles).split()
-
-    def build_token_cache():
+    def build_token_cache(split_paths, spe_tokenizer):
         token_counter = {}
         encoded = {}
         n_filtered_by_split = {split: 0 for split in split_paths}
@@ -117,8 +116,8 @@ def main():
                         continue
                     
                     src, tgt = parsed
-                    src_tokens = tokenize_smiles(src)
-                    tgt_tokens = tokenize_smiles(tgt)
+                    src_tokens = tokenize_smiles(src, spe_tokenizer)
+                    tgt_tokens = tokenize_smiles(tgt, spe_tokenizer)
                     if len(src_tokens) > MAX_SRC_LEN:
                         n_filtered_by_split[split] += 1
                         continue
@@ -134,7 +133,7 @@ def main():
                         # add randomized smiles copies (and count resulting tokens)
                         for _ in range(N_RANDOM_SMILES_AUGMENTATIONS):
                             src_aug = randomize_smiles_components(src)
-                            src_aug_tokens = tokenize_smiles(src_aug)
+                            src_aug_tokens = tokenize_smiles(src_aug, spe_tokenizer)
                             rows.append((src_aug_tokens, tgt_tokens))
                             
                             for token in src_aug_tokens + tgt_tokens:
@@ -175,9 +174,10 @@ def main():
 
         with open(ID_TO_TOKEN_PATH, "wb") as f:
             pickle.dump(id_to_token, f)
+    
 
     if not TOKEN_TO_ID_PATH.exists():
-        build_token_cache()
+        build_token_cache(split_paths=split_paths, spe_tokenizer=spe_tokenizer)
     else:
         print("Pulling existing token cache from disk")
 
@@ -486,18 +486,21 @@ def main():
             )
 
     print_title("Hyperparameter Tuning")
+    trainable = None
+    analysis = None
 
-    trainable = tune.with_resources(
-        tune.with_parameters(
-            train_tune, train_ref=train_ref, valid_ref=valid_ref
-        ),
-        resources={
-            "cpu": 2,
-            "gpu": 1,
-        }
-    )
+    if USE_RAY_TUNE:
+        trainable = tune.with_resources(
+            tune.with_parameters(
+                train_tune, train_ref=train_ref, valid_ref=valid_ref
+            ),
+            resources={
+                "cpu": 2,
+                "gpu": 1,
+            }
+        )
 
-    analysis = tune.run(
+        analysis = tune.run(
         trainable,
         config=SEARCH_SPACE,
         metric="valid_loss",
@@ -508,25 +511,27 @@ def main():
         ],
     )
 
-    config = analysis.get_best_config(
-        metric="valid_loss",
-        mode="min",
-    )
-    print("best config:", config, sep="\n")
+        config = analysis.get_best_config(
+            metric="valid_loss",
+            mode="min",
+        )
+        print("best config:", config, sep="\n")
+        best_trial = analysis.get_best_trial(
+            metric="valid_loss",
+            mode="min",
+        )
+        print("Best config:")
+        print(best_trial.config)
+        print()
+        print("Best validation loss:")
+        print(best_trial.last_result["valid_loss"])
+        print()
+        print("Validation token accuracy:")
+        print(best_trial.last_result["valid_token_acc"])
+    else:
+        print("No RayTune --> Using Default config:", config, sep='\n')
 
-    best_trial = analysis.get_best_trial(
-        metric="valid_loss",
-        mode="min",
-    )
-    print("Best config:")
-    print(best_trial.config)
-    print()
-    print("Best validation loss:")
-    print(best_trial.last_result["valid_loss"])
-    print()
-    print("Validation token accuracy:")
-    print(best_trial.last_result["valid_token_acc"])
-
+    
     print_title("Training + Evaluation")
 
     @torch.no_grad()
@@ -778,7 +783,6 @@ def main():
     
     print_title("Error Category Counts")
     print(error_counts_series)
-
 
 # ------------------------------------------------
 #               HELPER FUNCTIONS
@@ -1124,6 +1128,10 @@ def error_analysis_rows(predictions, targets, limit_correct=50, limit_incorrect=
         if correct_count >= limit_correct and incorrect_count >= limit_incorrect:
             break
     return rows
+
+
+def tokenize_smiles(smiles, spe_tokenizer):
+    return spe_tokenizer.tokenize(smiles).split()
 
 
 def smiles_to_mol(smiles):
