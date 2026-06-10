@@ -31,9 +31,9 @@ def main():
     SEED = 274
     MAX_SRC_LEN = 256
     MAX_TGT_LEN = 256
-    N_RANDOM_SMILES_AUGMENTATIONS = 4  # set to 0 for no randomized smiles augmentation
+    N_RANDOM_SMILES_AUGMENTATIONS = 0  # set to 0 for no randomized smiles augmentation
     USPTO_DATASET = True  # if false, uses ORDerly
-    DOWNLOAD_ORDERLY_TRAIN = True
+    TRAIN_ORDERLY = False
 
     # defaults - change after hyperparameter tuning if specified in the SEARCH_SPACE dict
     D_MODEL = 256
@@ -43,7 +43,7 @@ def main():
     BATCH_SIZE = 64
 
     EPOCHS = 30
-    USE_RAY_TUNE = True
+    USE_RAY_TUNE = False
     NUM_HPARAM_TUNING_TRIALS = 10
 
     PAD_TOKEN = "<pad>"
@@ -95,14 +95,12 @@ def main():
     DEVICE = pick_device()
     print(DEVICE)
 
-    load_dotenv()
-
     print_title("Downloading data")
 
     if USPTO_DATASET:
         download_uspto_mit(RAW_DIR)
     else:
-        download_and_process_orderly(raw_dir=RAW_DIR, download_full_train=DOWNLOAD_ORDERLY_TRAIN)
+        download_and_process_orderly(raw_dir=RAW_DIR, download_full_train=TRAIN_ORDERLY)
     split_paths = get_split_paths(RAW_DIR)
     writer = SummaryWriter(log_dir=OUTPUT_DIR / "tensorboard")
 
@@ -499,6 +497,7 @@ def main():
     analysis = None
 
     if USE_RAY_TUNE:
+        load_dotenv()
         trainable = tune.with_resources(
             tune.with_parameters(
                 train_tune, train_ref=train_ref, valid_ref=valid_ref
