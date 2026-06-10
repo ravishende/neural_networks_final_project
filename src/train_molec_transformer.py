@@ -19,6 +19,7 @@ from torch.utils.tensorboard import SummaryWriter
 from SmilesPE.tokenizer import SPE_Tokenizer
 from dotenv import load_dotenv
 from collections import Counter
+import ray
 from ray import tune
 import wandb
 from ray.air.integrations.wandb import WandbLoggerCallback
@@ -189,6 +190,9 @@ def main():
     train_data = torch.load(TOKEN_CACHE["train"], weights_only=True)
     valid_data = torch.load(TOKEN_CACHE["valid"], weights_only=True)
     test_data = torch.load(TOKEN_CACHE["test"], weights_only=True)
+
+    train_ref = ray.put(train_data)
+    valid_ref = ray.put(valid_data)
 
     VOCAB_SIZE = len(token_to_id)
     PAD_ID = token_to_id[PAD_TOKEN]
@@ -402,15 +406,18 @@ def main():
 
         return generated
 
-    def train_tune(config):
+    def train_tune(config, train_ref, valid_ref):
+        train = ray.get(train_ref)
+        valid = ray.get(valid_ref)
+
         train_subset = Subset(
-            ReactionDataset(train_data),
-            range(min(50000, len(train_data))),
+            ReactionDataset(train),
+            range(min(50000, len(train))),
         )
 
         valid_subset = Subset(
-            ReactionDataset(valid_data),
-            range(min(5000, len(valid_data))),
+            ReactionDataset(valid),
+            range(min(5000, len(valid))),
         )
 
         train_loader = DataLoader(
@@ -481,7 +488,9 @@ def main():
     print_title("Hyperparameter Tuning")
 
     trainable = tune.with_resources(
-        train_tune,
+        tune.with_parameters(
+            train_tune, train_ref=train_ref, valid_ref=valid_ref
+        ),
         resources={
             "cpu": 2,
             "gpu": 1,
