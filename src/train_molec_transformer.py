@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import json
 import random
 import zipfile
 import numpy as np
@@ -535,6 +536,8 @@ def main():
         print()
         print("Validation token accuracy:")
         print(best_trial.last_result["valid_token_acc"])
+        with open(OUTPUT_DIR/"config.json", "w") as f:
+            json.dump(config, f, indent=4)
     else:
         print("No RayTune --> Using Default config:", config, sep='\n')
 
@@ -747,6 +750,9 @@ def main():
             bos_id=token_to_id[BOS_TOKEN],
             eos_id=token_to_id[EOS_TOKEN],
         )
+    else:
+        with open(OUTPUT_DIR/"config.json", "r") as f:
+            config = json.load(f)
     print_title("Loading Best Model and Evaluating on Test Set")
     checkpoint = torch.load(CHECKPOINT_DIR/"best_model.pt", map_location=DEVICE, weights_only=False)
     model = ReactionTransformer(
