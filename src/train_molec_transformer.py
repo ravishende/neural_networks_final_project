@@ -1273,6 +1273,15 @@ def download_and_process_orderly(raw_dir, download_full_train=False):
     """
     RDLogger.DisableLog('rdApp.*')
 
+    required_files = [raw_dir / "test.txt", raw_dir / "valid.txt"]
+    if download_full_train:
+        required_files.append(raw_dir / "train.txt")
+    if all(f.exists() and f.stat().st_size > 0 for f in required_files):
+        print("ORDerly dataset already processed:")
+        for f in required_files:
+            print(f"  - {f}")
+        return
+
     # 1. Dynamic check for parquet engines
     try:
         import pyarrow
