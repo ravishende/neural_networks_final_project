@@ -694,6 +694,57 @@ def main():
         
         history_df = pd.DataFrame(history)
         return history_df, best_metric
+    
+    def fill_in_final_epoch_metrics_if_missing(
+            model, valid_loader, best_metric, id_to_token, bos_id, eos_id):
+        history_df = pd.read_csv(OUTPUT_DIR / "training_history.csv")
+        final_idx = len(history_df)-1
+        final_epoch_missing_metrics = pd.isna(history_df["chemical_match"].iloc[final_idx])
+        if not final_epoch_missing_metrics:
+            return
+        start = time.time()
+        metrics = evaluate_model(
+            model,
+            valid_loader,
+            id_to_token,
+            bos_id,
+            eos_id,
+        )
+        print(f"eval time: {time.time() - start:.2f}s")
+        chemical_match = metrics["chemical_match"]
+        valid_smiles = metrics["valid_smiles"]
+        final_epoch = history_df["epoch"].iloc[final_idx]
+        # update best model
+        if chemical_match > best_metric:
+            best_metric = chemical_match
+            torch.save({
+                "epoch": final_epoch,
+                "metric": chemical_match,
+                "model_state_dict":
+                    model.state_dict(),
+                "optimizer_state_dict":
+                    optimizer.state_dict(),
+                "scheduler_state_dict":
+                    scheduler.state_dict()},
+                CHECKPOINT_DIR / "best_model.pt")
+
+            print(f"New best model: {chemical_match:.4f}")
+        print(f"chemical_match={chemical_match:.4f} valid_smiles={valid_smiles:.4f}")
+
+        # update history_df's final row
+        loc_row = history_df.index[final_idx]
+        fill_in_metrics = {
+            "chemical_match":metrics["chemical_match"],
+            "string_exact_match":metrics["string_exact_match"],
+            "valid_smiles":metrics["valid_smiles"],
+            "levenshtein":metrics["levenshtein"],
+        }
+        
+        for metric, value in fill_in_metrics.items():
+            history_df.at[loc_row, metric] = value
+
+        history_df.to_csv(OUTPUT_DIR / "training_history.csv", index=False)
+        print(f"udpated training_history.csv with metrics for final epoch ({final_epoch})")
 
     train_loader = DataLoader(
         ReactionDataset(train_data),
@@ -772,6 +823,15 @@ def main():
     model.load_state_dict(checkpoint["model_state_dict"])
     print(f"Best validation chemical match: {checkpoint['metric']}")
     print(f"Loaded from epoch {checkpoint['epoch']}")
+
+    fill_in_final_epoch_metrics_if_missing(
+        model,
+        valid_loader=valid_loader,
+        best_metric=checkpoint['metric'],
+        id_to_token=id_to_token,
+        bos_id=token_to_id[BOS_TOKEN],
+        eos_id=token_to_id[EOS_TOKEN],
+    )
 
     test_metrics = evaluate_model(
         model,
