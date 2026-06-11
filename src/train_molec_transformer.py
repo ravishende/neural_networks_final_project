@@ -838,14 +838,19 @@ def create_data_folders(project_dir=None, named_output_dirs=None, uspto_dataset=
         project_dir = Path.cwd()
     if named_output_dirs is None:
         named_output_dirs = {}
-    dataset = "uspto_mit" if uspto_dataset else "orderly_ord"
-    token_dataset = "uspto_mit" if (uspto_dataset or not TRAIN_ORDERLY) else "orderly_ord"
+
+    uspto_str = "uspto_mit"
+    orderly_str = "orderly_ord"
+    dataset = uspto_str if uspto_dataset else orderly_str
+    token_dataset = uspto_str if (uspto_dataset or not TRAIN_ORDERLY) else orderly_str
+    
     data_dir = project_dir / "data"
     smiles_aug_str = f"{N_RANDOM_SMILES_AUGMENTATIONS}_augmentations"
+    output_base = project_dir/"outputs"/"transformer_smilespe"
 
     raw_dir = data_dir / "raw" / dataset
-    output_dir = project_dir/"outputs"/"transformer_smilespe"/dataset/smiles_aug_str
-    checkpoint_dir = output_dir / "checkpoints"
+    output_dir = output_base/dataset/smiles_aug_str
+    checkpoint_dir = output_base/token_dataset/"checkpoints"
     token_dir = data_dir/"processed"/token_dataset/smiles_aug_str
 
     raw_dir.mkdir(parents=True, exist_ok=True)
