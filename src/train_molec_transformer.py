@@ -31,7 +31,7 @@ def main():
     SEED = 274
     MAX_SRC_LEN = 256
     MAX_TGT_LEN = 256
-    N_RANDOM_SMILES_AUGMENTATIONS = 0  # set to 0 for no randomized smiles augmentation
+    N_RANDOM_SMILES_AUGMENTATIONS = 4  # set to 0 for no randomized smiles augmentation
     USPTO_DATASET = True  # if false, uses ORDerly
     TRAIN_ORDERLY = False
 
@@ -75,7 +75,7 @@ def main():
     RAW_DIR, PROCESSED_DIR, output_dirs_dict = create_data_folders(
         named_output_dirs={"transformer":"transformer_smilespe"},
         uspto_dataset=USPTO_DATASET)
-    OUTPUT_DIR = output_dirs_dict["transformer"]
+    OUTPUT_DIR = output_dirs_dict["transformer"] / f"{N_RANDOM_SMILES_AUGMENTATIONS}_augmentations"
     CHECKPOINT_DIR = OUTPUT_DIR / "checkpoints"
     CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -245,12 +245,6 @@ def main():
         )
 
         return src, tgt
-
-    def generate_square_subsequent_mask(size, device):
-        return torch.triu(
-            torch.full((size, size), float("-inf"), device=device),
-            diagonal=1,
-        )
 
     class PositionalEncoding(nn.Module):
         def __init__(
@@ -737,18 +731,19 @@ def main():
     criterion = nn.CrossEntropyLoss(
         ignore_index=PAD_ID,
     )
-    train_model(
-        model=model,
-        train_loader=train_loader,
-        valid_loader=valid_loader,
-        optimizer=optimizer,
-        scheduler=scheduler,
-        criterion=criterion,
-        epochs=EPOCHS,
-        id_to_token=id_to_token,
-        bos_id=token_to_id[BOS_TOKEN],
-        eos_id=token_to_id[EOS_TOKEN],
-    )
+    if USPTO_DATASET or TRAIN_ORDERLY:
+        train_model(
+            model=model,
+            train_loader=train_loader,
+            valid_loader=valid_loader,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            criterion=criterion,
+            epochs=EPOCHS,
+            id_to_token=id_to_token,
+            bos_id=token_to_id[BOS_TOKEN],
+            eos_id=token_to_id[EOS_TOKEN],
+        )
 
     print_title("Loading Best Model and Evaluating on Test Set")
     checkpoint = torch.load(CHECKPOINT_DIR/"best_model.pt", map_location=DEVICE, weights_only=False)
