@@ -102,7 +102,7 @@ def main():
         download_uspto_mit(RAW_DIR)
     else:
         download_and_process_orderly(raw_dir=RAW_DIR, download_full_train=TRAIN_ORDERLY)
-    split_paths = get_split_paths(RAW_DIR)
+    split_paths = get_split_paths(RAW_DIR, print_line_counts=True)
     writer = SummaryWriter(log_dir=OUTPUT_DIR / "tensorboard")
 
     print_title("Token Processing")
@@ -1054,7 +1054,7 @@ def get_file_info(raw_dir):
     return pd.DataFrame(file_info)
 
 
-def get_split_paths(raw_dir):
+def get_split_paths(raw_dir, print_line_counts=True):
     def find_split_file(raw_directory: Path, split: str) -> Path:
         """Find train/dev/test split file recursively."""
         aliases = {
@@ -1092,7 +1092,11 @@ def get_split_paths(raw_dir):
     }
 
     for split, path in split_paths.items():
-        print(split, "->", path.relative_to(raw_dir))
+        print(split, "->", path.relative_to(raw_dir), end='\t')
+        if print_line_counts:
+            n_lines = sum(1 for _ in path.open("r", encoding="utf-8"))
+            print(f"{n_lines} lines")
+
     return split_paths
 
 
