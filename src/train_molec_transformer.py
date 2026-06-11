@@ -31,7 +31,7 @@ def main():
     SEED = 274
     MAX_SRC_LEN = 256
     MAX_TGT_LEN = 256
-    N_RANDOM_SMILES_AUGMENTATIONS = 4  # set to 0 for no randomized smiles augmentation
+    N_RANDOM_SMILES_AUGMENTATIONS = 1  # set to 0 for no randomized smiles augmentation
     USPTO_DATASET = True  # if false, uses ORDerly
     TRAIN_ORDERLY = False
 
