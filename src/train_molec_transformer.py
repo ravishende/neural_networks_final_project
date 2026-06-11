@@ -539,7 +539,14 @@ def main():
         with open(CHECKPOINT_DIR/"config.json", "w") as f:
             json.dump(config, f, indent=4)
     else:
-        print("No RayTune --> Using Default config:", config, sep='\n')
+        print("No RayTune --> ", end="")
+        config_path = CHECKPOINT_DIR/"config.json"
+        if config_path.exists():
+            with open(CHECKPOINT_DIR/"config.json", "r") as f:
+                config = json.load(f)
+            print("Using cached config:", config, sep='\n')
+        else:
+            print("Using default config:", config, sep='\n')
 
     
     print_title("Training + Evaluation")
@@ -750,9 +757,6 @@ def main():
             bos_id=token_to_id[BOS_TOKEN],
             eos_id=token_to_id[EOS_TOKEN],
         )
-    else:
-        with open(CHECKPOINT_DIR/"config.json", "r") as f:
-            config = json.load(f)
     print_title("Loading Best Model and Evaluating on Test Set")
     checkpoint = torch.load(CHECKPOINT_DIR/"best_model.pt", map_location=DEVICE, weights_only=False)
     model = ReactionTransformer(
