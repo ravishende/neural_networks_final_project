@@ -31,6 +31,7 @@ from ray.air.integrations.wandb import WandbLoggerCallback
 N_RANDOM_SMILES_AUGMENTATIONS = 1  # set to 0 for no randomized smiles augmentation
 USPTO_DATASET = True  # if false, uses ORDerly
 TRAIN_ORDERLY = False
+TRAIN_USPTO = True
 USE_RAY_TUNE = True
 EPOCHS = 30
 
@@ -491,7 +492,7 @@ def main():
     trainable = None
     analysis = None
 
-    should_train = USPTO_DATASET or TRAIN_ORDERLY
+    should_train = (USPTO_DATASET and TRAIN_USPTO) or (not USPTO_DATASET and TRAIN_ORDERLY)
     if USE_RAY_TUNE and should_train:
         train_ref = ray.put(train_data)
         valid_ref = ray.put(valid_data)
@@ -744,7 +745,7 @@ def main():
     criterion = nn.CrossEntropyLoss(
         ignore_index=PAD_ID,
     )
-    if USPTO_DATASET or TRAIN_ORDERLY:
+    if should_train:
         train_model(
             model=model,
             train_loader=train_loader,
@@ -785,6 +786,9 @@ def main():
         if isinstance(value, list):
             continue
         print(f"{metric}: {value:.4f}")
+    
+    with open(OUTPUT_DIR/"test_metrics.json", "w") as f:
+        json.dump(test_metrics, f, indent=4)
 
     errors = error_analysis_rows(
         test_metrics["predictions"],
