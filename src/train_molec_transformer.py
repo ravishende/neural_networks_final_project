@@ -78,9 +78,10 @@ def main():
 
     RDLogger.DisableLog('rdApp.*')
     set_seed(SEED, prefer_reproducible_over_performance=False)
-    RAW_DIR, TOKEN_DIR, CHECKPOINT_DIR, OUTPUT_DIR = create_data_folders(
+    RAW_DIR, TOKEN_DIR, TRAIN_DIR, OUTPUT_DIR = create_data_folders(
         uspto_dataset=USPTO_DATASET)
-    
+    CHECKPOINT_DIR = TRAIN_DIR/"checkpoints"
+    CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
 
     TOKEN_CACHE = {
         "train": TOKEN_DIR / "train_tokens.pt",
@@ -690,14 +691,14 @@ def main():
                 writer.add_scalar("metrics/chemical_match", chemical_match, epoch)
             if len(history) > 1:
                 history_df = pd.DataFrame(history)
-                history_df.to_csv(OUTPUT_DIR / "training_history.csv", index=False)
+                history_df.to_csv(TRAIN_DIR / "training_history.csv", index=False)
         
         history_df = pd.DataFrame(history)
         return history_df, best_metric
     
     def fill_in_final_epoch_metrics_if_missing(
             model, valid_loader, best_metric, id_to_token, bos_id, eos_id):
-        history_df = pd.read_csv(OUTPUT_DIR / "training_history.csv")
+        history_df = pd.read_csv(TRAIN_DIR / "training_history.csv")
         final_idx = len(history_df)-1
         final_epoch_missing_metrics = pd.isna(history_df["chemical_match"].iloc[final_idx])
         if not final_epoch_missing_metrics:
@@ -904,7 +905,7 @@ def create_data_folders(project_dir=None, named_output_dirs=None, uspto_dataset=
         Tuple containing:
             - RAW_DIR (Path): Raw USPTO data directory.
             - TOKEN_DIR (Path): Processed Token files directory (according to dataset and TRAIN_ORDERLY)
-            - CHECKPOINT_DIR (Path): Directory where model was/is trained
+            - TRAIN_DIR (Path): Directory where model was/is trained
             - OUTPUT_DIRS_DICT (dict[str, Path]): Mapping of output names
               to created output directories.
     """
@@ -924,21 +925,21 @@ def create_data_folders(project_dir=None, named_output_dirs=None, uspto_dataset=
 
     raw_dir = data_dir / "raw" / dataset
     output_dir = output_base/dataset/smiles_aug_str
-    checkpoint_dir = output_base/token_dataset/smiles_aug_str/"checkpoints"
+    train_dir = output_base/token_dataset/smiles_aug_str
     token_dir = data_dir/"processed"/token_dataset/smiles_aug_str
 
     raw_dir.mkdir(parents=True, exist_ok=True)
     output_dir.mkdir(parents=True, exist_ok=True)
-    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    train_dir.mkdir(parents=True, exist_ok=True)
     token_dir.mkdir(parents=True, exist_ok=True)
 
     if print_paths:
         print("Project directory:", project_dir)
         print("Raw data directory:", raw_dir)
         print("Token data directory:", token_dir)
-        print("Checkpoint Directory:", checkpoint_dir)
+        print("Train Directory:", train_dir)
         print("Output Directory:", output_dir)
-    return raw_dir, token_dir, checkpoint_dir, output_dir
+    return raw_dir, token_dir, train_dir, output_dir
 
 
 def set_seed(seed: int = 274, prefer_reproducible_over_performance=True):
