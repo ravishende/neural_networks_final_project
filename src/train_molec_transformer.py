@@ -26,14 +26,18 @@ from ray import tune
 import wandb
 from ray.air.integrations.wandb import WandbLoggerCallback
 
+# settings
+N_RANDOM_SMILES_AUGMENTATIONS = 1  # set to 0 for no randomized smiles augmentation
+USPTO_DATASET = True  # if false, uses ORDerly
+TRAIN_ORDERLY = False
+USE_RAY_TUNE = True
+EPOCHS = 30
+
 def main():
     # constants
     SEED = 274
     MAX_SRC_LEN = 256
     MAX_TGT_LEN = 256
-    N_RANDOM_SMILES_AUGMENTATIONS = 1  # set to 0 for no randomized smiles augmentation
-    USPTO_DATASET = True  # if false, uses ORDerly
-    TRAIN_ORDERLY = False
 
     # defaults - change after hyperparameter tuning if specified in the SEARCH_SPACE dict
     D_MODEL = 256
@@ -42,8 +46,6 @@ def main():
     FF_DIM = 1024
     BATCH_SIZE = 64
 
-    EPOCHS = 30
-    USE_RAY_TUNE = True
     NUM_HPARAM_TUNING_TRIALS = 10
 
     PAD_TOKEN = "<pad>"
@@ -72,14 +74,14 @@ def main():
 
     RDLogger.DisableLog('rdApp.*')
     set_seed(SEED, prefer_reproducible_over_performance=False)
-    RAW_DIR, PROCESSED_DIR, output_dirs_dict = create_data_folders(
+    RAW_DIR, TOKEN_DIR, output_dirs_dict = create_data_folders(
         named_output_dirs={"transformer":"transformer_smilespe"},
         uspto_dataset=USPTO_DATASET)
-    OUTPUT_DIR = output_dirs_dict["transformer"] / f"{N_RANDOM_SMILES_AUGMENTATIONS}_augmentations"
+    OUTPUT_DIR = output_dirs_dict["transformer"]
     CHECKPOINT_DIR = OUTPUT_DIR / "checkpoints"
     CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
 
-    TOKEN_DIR = PROCESSED_DIR / f"{N_RANDOM_SMILES_AUGMENTATIONS}_augmentations"
+    # TOKEN_DIR = PROCESSED_DIR / f"{N_RANDOM_SMILES_AUGMENTATIONS}_augmentations"
     TOKEN_DIR.mkdir(parents=True, exist_ok=True)
     TOKEN_CACHE = {
         "train": TOKEN_DIR / "train_tokens.pt",
@@ -184,7 +186,11 @@ def main():
     
 
     if not TOKEN_TO_ID_PATH.exists():
-        build_token_cache(split_paths=split_paths, spe_tokenizer=spe_tokenizer)
+        if USPTO_DATASET or TRAIN_ORDERLY:
+            build_token_cache(split_paths=split_paths, spe_tokenizer=spe_tokenizer)
+        else:
+            print("\n\nError: Not training on ORDerly but tokens from USPTO don't exist yet.\nEither run with USPTO=True first to generate the tokens or set TRAIN_ORDERLY=True to use ORDerly tokens.\n\n")
+            sys.exit()
     else:
         print("Pulling existing token cache from disk")
 
@@ -828,7 +834,7 @@ def create_data_folders(project_dir=None, named_output_dirs=None, uspto_dataset=
     Returns:
         Tuple containing:
             - RAW_DIR (Path): Raw USPTO data directory.
-            - PROCESSED_DIR (Path): Processed USPTO data directory.
+            - TOKEN_DIR (Path): Processed Token files directory (according to dataset and TRAIN_ORDERLY)
             - OUTPUT_DIRS_DICT (dict[str, Path]): Mapping of output names
               to created output directories.
     """
@@ -837,25 +843,27 @@ def create_data_folders(project_dir=None, named_output_dirs=None, uspto_dataset=
     if named_output_dirs is None:
         named_output_dirs = {}
     dataset = "uspto_mit" if uspto_dataset else "orderly_ord"
+    token_dataset = "uspto_mit" if (uspto_dataset or not TRAIN_ORDERLY) else "orderly_ord"
     data_dir = project_dir / "data"
     raw_dir = data_dir / "raw" / dataset
-    processed_dir = data_dir / "processed" / dataset
     output_dirs_dict = {
-        name: project_dir/"outputs"/directory for name, directory in named_output_dirs.items()}
+        name: project_dir/"outputs"/directory/f"{N_RANDOM_SMILES_AUGMENTATIONS}_augmentations" 
+        for name, directory in named_output_dirs.items()}
 
     raw_dir.mkdir(parents=True, exist_ok=True)
-    processed_dir.mkdir(parents=True, exist_ok=True)
     for output_dir in output_dirs_dict.values():
         output_dir.mkdir(parents=True, exist_ok=True)
 
+    token_dir = data_dir/"processed"/ token_dataset/f"{N_RANDOM_SMILES_AUGMENTATIONS}_augmentations"
+    token_dir.mkdir(parents=True, exist_ok=True)
     if print_paths:
         print("Project directory:", project_dir)
         print("Raw data directory:", raw_dir)
-        print("Processed data directory:", processed_dir)
+        print("Token data directory:", token_dir)
         print("Output Directories:")
         for name, output_dir in output_dirs_dict.items():
             print(f"\t{name} Directory: {output_dir}")
-    return raw_dir, processed_dir, output_dirs_dict
+    return raw_dir, token_dir, output_dirs_dict
 
 
 def set_seed(seed: int = 274, prefer_reproducible_over_performance=True):
