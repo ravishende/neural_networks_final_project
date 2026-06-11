@@ -43,7 +43,7 @@ def main():
     BATCH_SIZE = 64
 
     EPOCHS = 30
-    USE_RAY_TUNE = False
+    USE_RAY_TUNE = True
     NUM_HPARAM_TUNING_TRIALS = 10
 
     PAD_TOKEN = "<pad>"
