@@ -33,6 +33,8 @@ TRAIN_ORDERLY = False
 USE_RAY_TUNE = True
 EPOCHS = 30
 
+# NOTE: currently TRAIN_ORDERLY=True and TRAIN_ORDERLY=False will write to the same folder. If you want to run both, make sure you copy your previous run somewhere else first.
+
 def main():
     # constants
     SEED = 274
@@ -74,21 +76,15 @@ def main():
 
     RDLogger.DisableLog('rdApp.*')
     set_seed(SEED, prefer_reproducible_over_performance=False)
-    RAW_DIR, TOKEN_DIR, output_dirs_dict = create_data_folders(
-        named_output_dirs={"transformer":"transformer_smilespe"},
+    RAW_DIR, TOKEN_DIR, CHECKPOINT_DIR, OUTPUT_DIR = create_data_folders(
         uspto_dataset=USPTO_DATASET)
-    OUTPUT_DIR = output_dirs_dict["transformer"]
-    CHECKPOINT_DIR = OUTPUT_DIR / "checkpoints"
-    CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+    
 
-    # TOKEN_DIR = PROCESSED_DIR / f"{N_RANDOM_SMILES_AUGMENTATIONS}_augmentations"
-    TOKEN_DIR.mkdir(parents=True, exist_ok=True)
     TOKEN_CACHE = {
         "train": TOKEN_DIR / "train_tokens.pt",
         "valid": TOKEN_DIR / "valid_tokens.pt",
         "test": TOKEN_DIR / "test_tokens.pt",
     }
-
     TOKEN_TO_ID_PATH = TOKEN_DIR / "token_to_id.pkl"
     ID_TO_TOKEN_PATH = TOKEN_DIR / "id_to_token.pkl"
 
@@ -192,7 +188,7 @@ def main():
             print("\n\nError: Not training on ORDerly but tokens from USPTO don't exist yet.\nEither run with USPTO=True first to generate the tokens or set TRAIN_ORDERLY=True to use ORDerly tokens.\n\n")
             sys.exit()
     else:
-        print("Pulling existing token cache from disk")
+        print(f"Pulling existing token cache from disk ({TOKEN_DIR})")
 
     with open(TOKEN_TO_ID_PATH, "rb") as f:
         token_to_id = pickle.load(f)
@@ -204,8 +200,6 @@ def main():
     valid_data = torch.load(TOKEN_CACHE["valid"], weights_only=True)
     test_data = torch.load(TOKEN_CACHE["test"], weights_only=True)
 
-    train_ref = ray.put(train_data)
-    valid_ref = ray.put(valid_data)
 
     VOCAB_SIZE = len(token_to_id)
     PAD_ID = token_to_id[PAD_TOKEN]
@@ -498,6 +492,8 @@ def main():
 
     should_train = USPTO_DATASET or TRAIN_ORDERLY
     if USE_RAY_TUNE and should_train:
+        train_ref = ray.put(train_data)
+        valid_ref = ray.put(valid_data)
         load_dotenv()
         trainable = tune.with_resources(
             tune.with_parameters(
@@ -751,7 +747,6 @@ def main():
             bos_id=token_to_id[BOS_TOKEN],
             eos_id=token_to_id[EOS_TOKEN],
         )
-
     print_title("Loading Best Model and Evaluating on Test Set")
     checkpoint = torch.load(CHECKPOINT_DIR/"best_model.pt", map_location=DEVICE, weights_only=False)
     model = ReactionTransformer(
@@ -835,6 +830,7 @@ def create_data_folders(project_dir=None, named_output_dirs=None, uspto_dataset=
         Tuple containing:
             - RAW_DIR (Path): Raw USPTO data directory.
             - TOKEN_DIR (Path): Processed Token files directory (according to dataset and TRAIN_ORDERLY)
+            - CHECKPOINT_DIR (Path): Directory where model was/is trained
             - OUTPUT_DIRS_DICT (dict[str, Path]): Mapping of output names
               to created output directories.
     """
@@ -845,25 +841,25 @@ def create_data_folders(project_dir=None, named_output_dirs=None, uspto_dataset=
     dataset = "uspto_mit" if uspto_dataset else "orderly_ord"
     token_dataset = "uspto_mit" if (uspto_dataset or not TRAIN_ORDERLY) else "orderly_ord"
     data_dir = project_dir / "data"
+    smiles_aug_str = f"{N_RANDOM_SMILES_AUGMENTATIONS}_augmentations"
+
     raw_dir = data_dir / "raw" / dataset
-    output_dirs_dict = {
-        name: project_dir/"outputs"/directory/f"{N_RANDOM_SMILES_AUGMENTATIONS}_augmentations" 
-        for name, directory in named_output_dirs.items()}
+    output_dir = project_dir/"outputs"/"transformer_smilespe"/dataset/smiles_aug_str
+    checkpoint_dir = output_dir / "checkpoints"
+    token_dir = data_dir/"processed"/token_dataset/smiles_aug_str
 
     raw_dir.mkdir(parents=True, exist_ok=True)
-    for output_dir in output_dirs_dict.values():
-        output_dir.mkdir(parents=True, exist_ok=True)
-
-    token_dir = data_dir/"processed"/ token_dataset/f"{N_RANDOM_SMILES_AUGMENTATIONS}_augmentations"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
     token_dir.mkdir(parents=True, exist_ok=True)
+
     if print_paths:
         print("Project directory:", project_dir)
         print("Raw data directory:", raw_dir)
         print("Token data directory:", token_dir)
-        print("Output Directories:")
-        for name, output_dir in output_dirs_dict.items():
-            print(f"\t{name} Directory: {output_dir}")
-    return raw_dir, token_dir, output_dirs_dict
+        print("Checkpoint Directory:", checkpoint_dir)
+        print("Output Directory:", output_dir)
+    return raw_dir, token_dir, checkpoint_dir, output_dir
 
 
 def set_seed(seed: int = 274, prefer_reproducible_over_performance=True):
