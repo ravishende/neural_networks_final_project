@@ -850,7 +850,7 @@ def create_data_folders(project_dir=None, named_output_dirs=None, uspto_dataset=
 
     raw_dir = data_dir / "raw" / dataset
     output_dir = output_base/dataset/smiles_aug_str
-    checkpoint_dir = output_base/token_dataset/"checkpoints"
+    checkpoint_dir = output_base/token_dataset/smiles_aug_str/"checkpoints"
     token_dir = data_dir/"processed"/token_dataset/smiles_aug_str
 
     raw_dir.mkdir(parents=True, exist_ok=True)
