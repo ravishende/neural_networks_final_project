@@ -490,7 +490,8 @@ def main():
     trainable = None
     analysis = None
 
-    if USE_RAY_TUNE:
+    should_train = USPTO_DATASET or TRAIN_ORDERLY
+    if USE_RAY_TUNE and should_train:
         load_dotenv()
         trainable = tune.with_resources(
             tune.with_parameters(
