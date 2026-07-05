@@ -21,7 +21,7 @@ python3 -m pip install -r requirements.txt
 
 1. `cd src`
 2. Open a desired jupyter notebook and run its cells in order
-   - Make sure you have a gpu accessible (e.g. on google colab)
+   - Make sure you have a GPU accessible (e.g. on google colab)
 
 ## Running on a remote server (ssh)
 
