@@ -1,4 +1,5 @@
 Final Project for COMPSCI 274P: Neural Networks
+See the final paper in [Final_Report.pdf](Final_Report.pdf)
 
 # Setup
 
